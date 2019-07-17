@@ -47,21 +47,20 @@ function placeOrder(){
 		}
     }]).then(function(answer){
         connection.query('SELECT * FROM products WHERE id = ?', [answer.selectId], function(err, res){
-            if(answer.selectQuantity > res[0].StockQuantity){
+            if(answer.selectQuantity > res[0].stock_quantity){
                 console.log('Insufficient Quantity');
                 console.log('This order has been cancelled');
                 console.log('');
                 newOrder();
             }
             else{
-                amountOwed = res[0].Price * answer.selectQuantity;
-                currentDepartment = res[0].DepartmentName;
-                console.log('Thanks for your order');
-                console.log('You owe $' + amountOwed);
-                console.log('');
+                amountOwed = res[0].price * answer.selectQuantity;
+                currentDepartment = res[0].department_name;
+                console.log("Thank you for your order");
+                console.log("You owe $" + amountOwed);
                 //update products table
                 connection.query('UPDATE products SET ? Where ?', [{
-                    StockQuantity: res[0].StockQuantity - answer.selectQuantity
+                    stock_quantity: res[0].stock_quantity - answer.selectQuantity
                 },{
                     id: answer.selectId
                 }], function(err, res){});
@@ -73,3 +72,19 @@ function placeOrder(){
     
     }, function(err, res){})
 }
+
+function newOrder(){
+	inquirer.prompt([{
+		type: "confirm",
+		name: "choice",
+		message: "Would you like to place another order?"
+	}]).then(function(answer){
+		if(answer.choice){
+			placeOrder();
+		}
+		else{
+			console.log("Thank you for shopping at Bamazon!");
+			connection.end();
+		}
+	})
+};
