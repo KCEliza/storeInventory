@@ -1,92 +1,107 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
+require("console.table");
 
 var connection = mysql.createConnection({
-    host: "localhost",
-    port: 3306,
-    user: "root",
-    password: "root",
-    database: "bamazon"
+  host: "localhost",
+  port: 3306,
+  user: root,
+  password: null,
+  database: "bamazon"
 });
 
-connection.connect(function (err) {
+connection.connect(function(err) {
+  if (err) {
+    console.error("error connecting: " + err.stack);
+  }
+  showItems();
+});
+
+function showItems() {
+  connection.query("SELECT * FROM products", function(err, res) {
     if (err) throw err;
-    runSearch();
-});
-
-function runSearch() {
-    connection.query('SELECT * FROM products', function (err, res) {
-        if (err) throw err;
-
-        for (i = 0; i < res.length; i++) {
-            console.log('Item ID:' + res[i].item_id + ' Product Name: ' + res[i].product_name + ' Price: $' + res[i].price + 'Amount Available: ' + res[i].stock_quantity)
-        }
-        placeOrder();
-    })
-}
-function placeOrder(){
-    inquirer.prompt([{
-        name: "selectId",
-        message: "Please enter the ID of the item you wish to purchase",
-        validate: function(value){
-            var valid = value.match(/^[0-9]+$/)
-            if(valid){
-                return true;
-            }
-            return "Please enter a valid Product ID"
-        }
-    }, {
-        name: "selectQuantity",
-        message: "How many would you like?",
-        validate: function(value){
-			var valid = value.match(/^[0-9]+$/)
-			if(valid){
-				return true
-			}
-				return "Please enter a valid numerical value"
-		}
-    }]).then(function(answer){
-        connection.query('SELECT * FROM products WHERE id = ?', [answer.selectId], function(err, res){
-            if(answer.selectQuantity > res[0].stock_quantity){
-                console.log('Insufficient Quantity');
-                console.log('This order has been cancelled');
-                console.log('');
-                newOrder();
-            }
-            else{
-                amountOwed = res[0].price * answer.selectQuantity;
-                currentDepartment = res[0].department_name;
-                console.log("Thank you for your order");
-                console.log("You owe $" + amountOwed);
-                //update products table
-                connection.query('UPDATE products SET ? Where ?', [{
-                    stock_quantity: res[0].stock_quantity - answer.selectQuantity
-                },{
-                    id: answer.selectId
-                }], function(err, res){});
-                //update departments table
-                logSaleToDepartment();
-                newOrder();
-            }
-        })
-    
-    }, function(err, res){})
+    console.table(res);
+    customerPrompt(res);
+  });
 }
 
-function newOrder(){
-	inquirer.prompt([{
-		type: "confirm",
-		name: "choice",
-		message: "Would you like to place another order?"
-	}]).then(function(answer){
-		if(answer.choice){
-			placeOrder();
-		}
-		else{
-			console.log("Thank you for shopping at Bamazon!");
-			connection.end();
-		}
-	})
-};
+function customerPrompt(inventory) {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "choice",
+        message: "What is the ID of the item you would you like to purchase? [Quit with Q]",
+        validate: function(val) {
+          return !isNaN(val) || val.toLowerCase() === "q";
+        }
+      }
+    ])
+    .then(function(val) {
+      Exit(val.choice);
+      var choiceId = parseInt(val.choice);
+      var product = checkInventory(choiceId, inventory);
 
-runSearch();
+      if (product) {
+        numberPrompt(product);
+      }
+      else {
+        console.log("\nThat item is not in the inventory.");
+        showItems();
+      }
+    });
+}
+
+// Prompt the customer for a product quantity
+function numberPrompt(product) {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "quantity",
+        message: "How many would you like? [Quit with Q]",
+        validate: function(val) {
+          return val > 0 || val.toLowerCase() === "q";
+        }
+      }
+    ])
+    .then(function(val) {
+      Exit(val.quantity);
+      var quantity = parseInt(val.quantity);
+
+      if (quantity > product.stock_quantity) {
+        console.log("\nInsufficient quantity!");
+        showItems();
+      }
+      else {
+        makePurchase(product, quantity);
+      }
+    });
+}
+
+function makePurchase(product, quantity) {
+  connection.query(
+    "UPDATE products SET stock_quantity = stock_quantity - ? WHERE item_id = ?",
+    [quantity, product.item_id],
+    function(err, res) {
+      console.log("\nSuccessfully purchased " + quantity + " " + product.product_name + "'s!");
+      showItems();
+    }
+  );
+}
+
+function checkInventory(choiceId, inventory) {
+  for (var i = 0; i < inventory.length; i++) {
+    if (inventory[i].item_id === choiceId) {
+      return inventory[i];
+    }
+  }
+  return null;
+}
+
+function Exit(choice) {
+  if (choice.toLowerCase() === "q") {
+    console.log("Thanks for shopping with us!");
+    process.exit(0);
+  }
+}
