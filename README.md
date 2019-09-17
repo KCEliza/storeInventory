@@ -29,3 +29,6 @@ The View Low Inventory option shows the user the items which currently have fewe
 The Add to Inventory option allows the user to select a given item ID and add additional inventory to the target item.
 
 The Add New Product option allows the user to enter details about a new product which will be entered into the database upon completion of the form.
+
+
+![image](https://user-images.githubusercontent.com/48337639/65070010-16cec380-d949-11e9-9ecb-d3f7f5e3431b.png)
